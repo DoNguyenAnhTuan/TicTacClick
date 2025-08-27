@@ -18,7 +18,17 @@ html,body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;
 .hero-side img{
   max-height:60px; max-width:120px; width:auto; height:auto; object-fit:contain; display:block;
 }
-.hero-center{flex:1 1 auto; min-width:0; text-align:center; padding:0 8px}
+.hero-center{
+  flex:1 1 auto;
+  min-width:0;
+  text-align:center;
+  padding:0 8px;
+
+  display:flex;
+  flex-direction:column;    /* xếp dọc */
+  align-items:center;       /* căn giữa ngang */
+  justify-content:center;   /* căn giữa dọc trong khối */
+}
 .hero-pill{
   display:inline-block; padding:6px 14px; border-radius:999px; font-weight:800;
   color:#0a3f2a; background:linear-gradient(90deg,#d8fff0,#e9fff8);
@@ -101,3 +111,58 @@ select,input[type="text"]{
 .msg{font-size:15px;margin-top:6px}
 .ok{color:#0a7a55;font-weight:800}
 .error{color:#c62828;font-weight:800}
+/* Ép form controls dùng light theme để iOS không đảo màu chữ */
+:root { color-scheme: light; }
+
+/* ===== Form controls: chữ đậm, placeholder rõ, viền nổi ===== */
+select,
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="email"],
+textarea {
+  color: var(--ink) !important;            /* chữ đậm */
+  background: #fff !important;             /* nền sáng */
+  border: 2px solid var(--accent) !important; /* viền dễ thấy */
+  -webkit-text-fill-color: var(--ink);     /* fix iOS */
+}
+
+/* Placeholder đậm hơn để nhìn thấy */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280; /* = var(--muted) */
+  opacity: 1;
+}
+
+/* Autofill vàng của iOS/Safari/Chrome */
+input:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink) !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Focus rõ ràng */
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-2) !important;
+  box-shadow: 0 0 0 4px rgba(46,189,133,.20);
+}
+
+/* ===== Buttons: đảm bảo luôn thấy chữ ===== */
+button,
+input[type="submit"] {
+  color: var(--ink) !important;            /* chữ tối trên nền trắng hiện tại */
+  background: #fff;                        /* bạn đang để #fff */
+  border: 1px solid #104d35;
+}
+
+/* Nếu có nút “chính” muốn nền xanh – chữ trắng: thêm class .btn-primary */
+.btn-primary {
+  background: var(--accent);
+  color: #fff !important;
+  border: 1px solid var(--accent-2);
+  box-shadow: 0 6px 18px rgba(29,156,107,.25);
+}
+.btn-primary:hover { filter: brightness(0.98); }
