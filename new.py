@@ -65,19 +65,47 @@ SELECT_TEMPLATE = """
     body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;
          background:linear-gradient(180deg,#eef8f3,#f7faf9 30%,#f4f7f6)}
     /* HERO (logos 2 bên) */
-    .hero{display:flex;align-items:center;justify-content:space-between;
-          max-width:1080px;margin:20px auto 12px;padding:0 16px;gap:16px}
-    .hero-side img{max-height:72px;width:auto;display:block}
-    .hero-center{flex:1;text-align:center}
-    .hero-pill{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:800;
-      color:#0a3f2a;background:linear-gradient(90deg,#d8fff0,#e9fff8);
-      border:1px solid #baf1db;box-shadow:0 6px 16px rgba(29,156,107,.15);margin-bottom:6px}
-    .hero-title{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.1;
-      background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
-      -webkit-background-clip:text;background-clip:text;color:transparent;
-      text-shadow:0 6px 24px rgba(46,189,133,.25)}
-    .hero-sub{margin:0;color:#0a3f2a;font-weight:700;opacity:.85}
-    @media (max-width:640px){.hero{flex-direction:column;gap:8px}.hero-side img{max-height:56px}}
+    /* === Hero balance & wrap fix === */
+    .hero{
+    display:flex; align-items:center; justify-content:space-between;
+    max-width:1080px; margin:20px auto 12px; padding:0 16px; gap:16px;
+    }
+
+    /* Hộp logo 2 bên có bề rộng cố định để luôn cân */
+    .hero-side{
+    flex:0 0 140px;              /* cùng một bề rộng */
+    display:flex; align-items:center; justify-content:center;
+    }
+    .hero-side img{
+    max-height:60px;             /* cùng chiều cao “nhìn” */
+    max-width:120px;             /* không vượt hộp */
+    width:auto; height:auto; object-fit:contain; display:block;
+    }
+
+    /* Khối giữa cho phép co và wrap chữ */
+    .hero-center{
+    flex:1 1 auto; min-width:0;  /* quan trọng để không bị clip chữ */
+    text-align:center; padding:0 8px;
+    }
+
+    /* Tiêu đề: size clamp nhẹ hơn + cho wrap an toàn */
+    .hero-title{
+    margin:0;
+    font-size:clamp(28px, 5.2vw, 46px);  /* hạ chút so với trước */
+    line-height:1.12;
+    background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 6px 24px rgba(46,189,133,.25);
+    overflow-wrap:anywhere;       /* tránh tràn */
+    }
+
+    /* Mobile: thu nhỏ hộp logo để không lấn chữ */
+    @media (max-width: 640px){
+    .hero{flex-direction:column; gap:8px}
+    .hero-side{flex:0 0 auto}
+    .hero-side img{max-height:52px; max-width:120px}
+    }
+
 
     .wrap{max-width:1080px;margin:0 auto;padding:0 16px 28px}
     .grid{display:grid;gap:16px;margin-top:18px;grid-template-columns:repeat(3,1fr)}
@@ -145,19 +173,47 @@ PLAY_TEMPLATE = """
       background:linear-gradient(180deg,#eef8f3,#f7faf9 30%,#f4f7f6)}
 
     /* HERO (logos 2 bên) */
-    .hero{display:flex;align-items:center;justify-content:space-between;
-          max-width:1080px;margin:20px auto 12px;padding:0 16px;gap:16px}
-    .hero-side img{max-height:72px;width:auto;display:block}
-    .hero-center{flex:1;text-align:center}
-    .hero-pill{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:800;
-      color:#0a3f2a;background:linear-gradient(90deg,#d8fff0,#e9fff8);
-      border:1px solid #baf1db;box-shadow:0 6px 16px rgba(29,156,107,.15);margin-bottom:6px}
-    .hero-title{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.1;
-      background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
-      -webkit-background-clip:text;background-clip:text;color:transparent;
-      text-shadow:0 6px 24px rgba(46,189,133,.25)}
-    .hero-sub{margin:0;color:#0a3f2a;font-weight:700;opacity:.85}
-    @media (max-width:640px){.hero{flex-direction:column;gap:8px}.hero-side img{max-height:56px}}
+    /* === Hero balance & wrap fix === */
+    .hero{
+    display:flex; align-items:center; justify-content:space-between;
+    max-width:1080px; margin:20px auto 12px; padding:0 16px; gap:16px;
+    }
+
+    /* Hộp logo 2 bên có bề rộng cố định để luôn cân */
+    .hero-side{
+    flex:0 0 140px;              /* cùng một bề rộng */
+    display:flex; align-items:center; justify-content:center;
+    }
+    .hero-side img{
+    max-height:60px;             /* cùng chiều cao “nhìn” */
+    max-width:120px;             /* không vượt hộp */
+    width:auto; height:auto; object-fit:contain; display:block;
+    }
+
+    /* Khối giữa cho phép co và wrap chữ */
+    .hero-center{
+    flex:1 1 auto; min-width:0;  /* quan trọng để không bị clip chữ */
+    text-align:center; padding:0 8px;
+    }
+
+    /* Tiêu đề: size clamp nhẹ hơn + cho wrap an toàn */
+    .hero-title{
+    margin:0;
+    font-size:clamp(28px, 5.2vw, 46px);  /* hạ chút so với trước */
+    line-height:1.12;
+    background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 6px 24px rgba(46,189,133,.25);
+    overflow-wrap:anywhere;       /* tránh tràn */
+    }
+
+    /* Mobile: thu nhỏ hộp logo để không lấn chữ */
+    @media (max-width: 640px){
+    .hero{flex-direction:column; gap:8px}
+    .hero-side{flex:0 0 auto}
+    .hero-side img{max-height:52px; max-width:120px}
+    }
+
 
     .topbar{display:flex;justify-content:center;gap:10px;margin:8px 0;flex-wrap:wrap}
     .topbar button{min-width:120px}
