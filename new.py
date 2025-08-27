@@ -2,228 +2,374 @@ from flask import Flask, request, render_template_string, url_for
 
 app = Flask(__name__)
 
+# ===== STATE =====
 SIZE = 3
 board = [["." for _ in range(SIZE)] for _ in range(SIZE)]
 game_over = False
-winner = None  # 'X', 'O', 'draw', or None
+winner = None
+current_map = None              # 'map1' | 'map2' | 'map3'
+COURSE = "Cáp quang và laser"
 
-COL_MAP = {"h": 0, "y": 1, "t": 2}  # trái -> phải
-ROW_MAP = {"6": 0, "5": 1, "3": 2}  # trên -> dưới
+# Cột: trái→phải ; Hàng: trên→dưới (KHÔNG hiển thị ra UI)
+MAPS = {
+    "map1": {"name": "Map 1", "rows": ["6", "5", "3"], "cols": ["h", "y", "t"]},
+    "map2": {"name": "Map 2", "rows": ["4", "7", "9"], "cols": ["a", "d", "e"]},
+    "map3": {"name": "Map 3", "rows": ["2", "8", "1"], "cols": ["p", "q", "b"]},
+}
+
+def make_maps(cols, rows):
+    col_map = {str(cols[i]).lower(): i for i in range(3)}
+    row_map = {str(rows[i]).lower(): i for i in range(3)}
+    return col_map, row_map
+
+def reset_board():
+    global board, game_over, winner
+    board = [["." for _ in range(SIZE)] for _ in range(SIZE)]
+    game_over = False
+    winner = None
 
 def check_winner(b):
-    """Trả về 'X' / 'O' nếu có 3 liên tiếp; 'draw' nếu bàn đầy mà chưa ai thắng; None nếu chưa kết thúc."""
     lines = []
-
-    # Hàng & Cột
     for i in range(3):
-        lines.append(b[i])                         # hàng i
-        lines.append([b[0][i], b[1][i], b[2][i]]) # cột i
-
-    # Chéo
+        lines.append(b[i])
+        lines.append([b[0][i], b[1][i], b[2][i]])
     lines.append([b[0][0], b[1][1], b[2][2]])
     lines.append([b[0][2], b[1][1], b[2][0]])
 
-    for line in lines:
-        if line[0] != "." and line.count(line[0]) == 3:
-            return line[0]  # 'X' hoặc 'O'
+    for ln in lines:
+        if ln[0] != "." and ln.count(ln[0]) == 3:
+            return ln[0]
 
-    # Bàn đầy?
-    full = all(cell != "." for row in b for cell in row)
+    full = all(c != "." for r in b for c in r)
     if full:
-        # Đếm quân để phân thắng nếu chưa ai 3 liên tiếp
-        x_cnt = sum(cell == "X" for row in b for cell in row)
-        o_cnt = sum(cell == "O" for row in b for cell in row)
-        if x_cnt > o_cnt:
-            return "X"
-        elif o_cnt > x_cnt:
-            return "O"
-        else:
-            return "draw"
-
+        x_cnt = sum(c == "X" for r in b for c in r)
+        o_cnt = sum(c == "O" for r in b for c in r)
+        if x_cnt > o_cnt: return "X"
+        if o_cnt > x_cnt: return "O"
+        return "draw"
     return None
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
+# ===== TEMPLATES =====
+
+SELECT_TEMPLATE = """
+<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Cáp quang và laser</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ course }} — Chọn map</title>
   <style>
-    :root{
-      --bg:#f7f7fb; --card:#ffffff; --ink:#0f172a; --muted:#6b7280;
-      --line:#e5e7eb; --error:#ef4444; --ok:#065f46; --radius:12px;
-    }
+    :root{--bg:#f4f7f6;--panel:#fff;--ink:#0f1b14;--muted:#6b7280;--line:#e6ebe9;
+          --radius:16px;--shadow:0 12px 30px rgba(16,24,40,.08)}
     *{box-sizing:border-box}
-    body{margin:0; font-family:Inter,system-ui,Arial,sans-serif; color:var(--ink); background:var(--bg)}
-    h1{margin:24px 0 12px; text-align:center; font-size:28px; letter-spacing:.3px}
-    .container{
-      max-width:1040px; margin:0 auto; padding:0 16px 28px;
-      display:grid; gap:18px; grid-template-columns:300px minmax(260px, 1fr) 320px;
-      align-items:start; justify-items:center;
-    }
-    .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px}
-    .caption{font-size:12px; color:var(--muted); text-align:center; margin-top:6px}
-    img{max-width:100%; height:auto; display:block; border-radius:10px}
+    body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;
+         background:linear-gradient(180deg,#eef8f3,#f7faf9 30%,#f4f7f6)}
+    /* HERO (logos 2 bên) */
+    .hero{display:flex;align-items:center;justify-content:space-between;
+          max-width:1080px;margin:20px auto 12px;padding:0 16px;gap:16px}
+    .hero-side img{max-height:72px;width:auto;display:block}
+    .hero-center{flex:1;text-align:center}
+    .hero-pill{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:800;
+      color:#0a3f2a;background:linear-gradient(90deg,#d8fff0,#e9fff8);
+      border:1px solid #baf1db;box-shadow:0 6px 16px rgba(29,156,107,.15);margin-bottom:6px}
+    .hero-title{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.1;
+      background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+      text-shadow:0 6px 24px rgba(46,189,133,.25)}
+    .hero-sub{margin:0;color:#0a3f2a;font-weight:700;opacity:.85}
+    @media (max-width:640px){.hero{flex-direction:column;gap:8px}.hero-side img{max-height:56px}}
 
-    /* Board */
-    .board-wrap{display:flex; justify-content:center}
-    table{border-collapse:collapse; margin:0 auto}
-    td{width:70px; height:70px; text-align:center; vertical-align:middle;
-       border:2px solid #000; font-size:30px}
-    .legend{margin-top:8px; font-size:13px; color:var(--muted); text-align:center}
-
-    /* Rules */
-    .rules h3{margin:4px 0 8px}
-    .rules ul{margin:8px 0 0 18px; line-height:1.55}
-
-    /* Controls */
-    .controls{max-width:820px; margin:10px auto 20px; display:flex; flex-direction:column; gap:10px}
-    form{display:flex; flex-direction:column; align-items:center; gap:10px}
-    .row-inline{display:flex; gap:16px; flex-wrap:wrap; align-items:center; justify-content:center}
-    label{font-weight:600}
-    select, input[type="text"]{
-      padding:8px 10px; font-size:16px; border-radius:10px; border:1px solid var(--line); outline:none;
-      background:#fff; min-width:64px; text-align:center;
-    }
-    input::placeholder{color:#9ca3af}
-    .btns{display:flex; gap:10px; justify-content:center}
-    button{
-      padding:10px 18px; font-size:16px; border-radius:12px; border:1px solid #111;
-      background:#fff; cursor:pointer;
-    }
-    .msg{font-size:15px; margin-top:6px}
-    .msg.error{color:var(--error); font-weight:700}
-    .msg.ok{color:var(--ok); font-weight:700}
+    .wrap{max-width:1080px;margin:0 auto;padding:0 16px 28px}
+    .grid{display:grid;gap:16px;margin-top:18px;grid-template-columns:repeat(3,1fr)}
+    @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+          box-shadow:var(--shadow);padding:16px;text-align:center}
+    .maptitle{font-weight:800;color:#0a3f2a}
+    .muted{color:var(--muted);font-size:14px;margin-top:6px}
+    form{margin-top:10px}
+    button{padding:12px 16px;border:1px solid #104d35;border-radius:12px;background:#fff;font-weight:600}
   </style>
 </head>
 <body>
-  <h1>Cáp quang và laser</h1>
 
-  <div class="container">
-    <!-- Trái: Ảnh morse -->
+<section class="hero">
+  <div class="hero-side">
+    <img src="{{ url_for('static', filename='logo-15nam.png') }}" alt="Logo 15 năm">
+  </div>
+  <div class="hero-center">
+    <div class="hero-pill">Khóa học trải nghiệm</div>
+    <h1 class="hero-title">Cáp quang &amp; Laser</h1>
+    <br>
+    <p class="hero-sub">Chọn map để bắt đầu</p>
+  </div>
+  <div class="hero-side">
+    <img src="{{ url_for('static', filename='logo-fablab.png') }}" alt="Logo FabLab">
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="grid">
+    {% for mid, m in maps.items() %}
     <div class="card">
-      <img src="{{ url_for('static', filename='morse.png') }}" alt="Mã Morse">
-      <div class="caption">Bảng mã Morse (tham khảo)</div>
+      <div class="maptitle">{{ m.name }}</div>
+      <div class="muted">Bắt đầu thi đấu với cấu hình ẩn tọa độ.</div>
+      <form method="post" action="/select_map">
+        <input type="hidden" name="map_id" value="{{ mid }}">
+        <button type="submit">Chọn {{ m.name }}</button>
+      </form>
     </div>
-
-    <!-- Giữa: Bàn Caro 3x3 -->
-    <div class="card board-wrap">
-      <div>
-        <table>
-          {% for row in board %}
-          <tr>
-            {% for cell in row %}
-            <td>{{ cell }}</td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </table>
-      
-      </div>
-    </div>
-
-    <!-- Phải: Luật chơi -->
-    <div class="card rules">
-      <h3>Luật chơi</h3>
-      <ul>
-        <li>Hai người chơi lần lượt đánh dấu <b>X</b> hoặc <b>O</b> vào một ô trống.</li>
-        <li>Nhập toạ độ theo <b>cột chữ</b> (h, y, t) và <b>hàng số</b> (6, 5, 3).</li>
-        <li>Nếu đầy bàn mà chưa ai 3 liên tiếp: bên có <b>số quân nhiều hơn</b> thắng; bằng nhau thì hoà.</li>
-        <li>Bấm <b>Reset</b> để chơi ván mới.</li>
-      </ul>
-    </div>
+    {% endfor %}
   </div>
-
-  <!-- Điều khiển dưới cùng -->
-  <div class="controls">
-    <form method="post" action="/move">
-      <div class="row-inline">
-        <label>Người chơi:</label>
-        <select name="player">
-          <option value="X" {% if last_player=='X' %}selected{% endif %}>X</option>
-          <option value="O" {% if last_player=='O' %}selected{% endif %}>O</option>
-        </select>
-
-        <label>Hàng:</label>
-        <input type="text" name="row_label" placeholder="Nhập tọa độ hàng" autocomplete="off">
-
-        <label>Cột:</label>
-        <input type="text" name="col_label" placeholder="Nhập tọa độ cột" autocomplete="off">
-      </div>
-
-      <div class="btns">
-        <button type="submit">Enter</button>
-      </div>
-
-      {% if message %}
-        <div class="msg {{ 'error' if error else 'ok' }}">{{ message }}</div>
-      {% endif %}
-    </form>
-
-    <form method="post" action="/reset" style="display:flex; justify-content:center">
-      <button type="submit">Reset</button>
-    </form>
-  </div>
+</div>
 </body>
 </html>
 """
 
-def render(message=None, error=False, last_player="X"):
+PLAY_TEMPLATE = """
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ course }}</title>
+  <style>
+    :root{
+      --bg:#f4f7f6; --panel:#ffffff; --ink:#0f1b14; --muted:#6b7280;
+      --line:#e6ebe9; --accent:#2ebd85; --accent-2:#1d9c6b;
+      --radius:16px; --shadow:0 12px 30px rgba(16,24,40,.08);
+      --cell:80px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;
+      background:linear-gradient(180deg,#eef8f3,#f7faf9 30%,#f4f7f6)}
+
+    /* HERO (logos 2 bên) */
+    .hero{display:flex;align-items:center;justify-content:space-between;
+          max-width:1080px;margin:20px auto 12px;padding:0 16px;gap:16px}
+    .hero-side img{max-height:72px;width:auto;display:block}
+    .hero-center{flex:1;text-align:center}
+    .hero-pill{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:800;
+      color:#0a3f2a;background:linear-gradient(90deg,#d8fff0,#e9fff8);
+      border:1px solid #baf1db;box-shadow:0 6px 16px rgba(29,156,107,.15);margin-bottom:6px}
+    .hero-title{margin:0;font-size:clamp(28px,6vw,44px);line-height:1.1;
+      background:linear-gradient(90deg,#0a3f2a 0%, #1d9c6b 60%, #2ebd85 100%);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+      text-shadow:0 6px 24px rgba(46,189,133,.25)}
+    .hero-sub{margin:0;color:#0a3f2a;font-weight:700;opacity:.85}
+    @media (max-width:640px){.hero{flex-direction:column;gap:8px}.hero-side img{max-height:56px}}
+
+    .topbar{display:flex;justify-content:center;gap:10px;margin:8px 0;flex-wrap:wrap}
+    .topbar button{min-width:120px}
+
+    /* Layout 3 cột → 2 → 1 */
+    .container{
+      display:grid; gap:18px; align-items:start; justify-items:center;
+      max-width:1080px; margin:0 auto; padding:0 16px 20px;
+      grid-template-columns:300px minmax(260px,1fr) 320px;
+    }
+    @media (max-width: 992px){ .container{grid-template-columns:1fr 1fr} }
+    @media (max-width: 640px){ .container{grid-template-columns:1fr} }
+
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);padding:16px;width:100%}
+    img{max-width:100%;height:auto;border-radius:12px;display:block}
+    .caption{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+
+    /* Board đẹp + màu X/O */
+    table{border-collapse:separate;border-spacing:0;margin:0 auto}
+    td{width:var(--cell);height:var(--cell);text-align:center;vertical-align:middle;
+       border:3px solid #0a3324;font-size:calc(var(--cell) * .44);font-weight:900}
+    @media (max-width:640px){ :root{--cell:64px} }
+    @media (max-width:380px){ :root{--cell:56px} }
+    .cell .mark{display:inline-block;transform:translateY(-2px)}
+    .cell.x .mark{color:#2a63ff;text-shadow:0 0 10px rgba(42,99,255,.2)}
+    .cell.o .mark{color:#ff2a7a;text-shadow:0 0 10px rgba(255,42,122,.25)}
+    .cell.e .mark{color:#9aa7a1}
+    @media (hover:hover){ .cell.e:hover{background:#f3fffa} }
+
+    .rules h3{margin:4px 0 8px;color:#0a3f2a}
+    .rules ul{margin:8px 0 0 18px;line-height:1.55}
+
+    .controls{max-width:820px;margin:10px auto 24px;display:flex;flex-direction:column;gap:10px;padding:0 12px}
+    form{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .row-inline{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:center;width:100%}
+    label{font-weight:700;color:#0a3f2a}
+    select,input[type="text"]{
+      padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+      background:#fff;min-width:90px;text-align:center;box-shadow:inset 0 1px 0 rgba(16,24,40,.04)
+    }
+    @media (max-width:640px){
+      .row-inline > *{flex:1 1 32%}
+      select,input[type="text"]{width:100%}
+    }
+
+    .btns{display:flex;gap:10px;justify-content:center;width:100%}
+    button{padding:12px 16px;border-radius:12px;border:1px solid #104d35;background:#fff;cursor:pointer;font-weight:600}
+    button:active{transform:translateY(1px)}
+    .msg{font-size:15px;margin-top:6px}
+    .ok{color:#0a7a55;font-weight:800}
+    .error{color:#c62828;font-weight:800}
+  </style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-side">
+    <img src="{{ url_for('static', filename='logo-15nam.png') }}" alt="Logo 15 năm">
+  </div>
+  <div class="hero-center">
+    <div class="hero-pill">Khóa học trải nghiệm</div>
+    <h1 class="hero-title">Cáp quang &amp; Laser</h1>
+    <p class="hero-sub">Trò chơi Tic-Tac-Toe</p>
+  </div>
+  <div class="hero-side">
+    <img src="{{ url_for('static', filename='logo-fablab.png') }}" alt="Logo FabLab">
+  </div>
+</section>
+
+<div class="topbar">
+  <form method="post" action="/change_map"><button type="submit">Đổi map</button></form>
+  <form method="post" action="/reset"><button type="submit">Reset</button></form>
+</div>
+
+<div class="container">
+  <div class="card">
+    <img src="{{ url_for('static', filename='morse.png') }}" alt="Mã Morse">
+    <div class="caption">Bảng mã Morse (tham khảo)</div>
+  </div>
+
+  <div class="card">
+    <table>
+      {% for row in board %}
+      <tr>
+        {% for cell in row %}
+        <td class="cell {% if cell=='X' %}x{% elif cell=='O' %}o{% else %}e{% endif %}">
+          <span class="mark">{{ cell }}</span>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card rules">
+    <h3>Luật chơi</h3>
+    <ul>
+      <li>Hai người chơi lần lượt đánh dấu <b>X</b> hoặc <b>O</b> vào ô trống.</li>
+      <li>Ô đã có X/O thì không được đánh.</li>
+      <li>3 liên tiếp (ngang/dọc/chéo) → thắng. Hết bàn: bên có <b>số quân nhiều hơn</b> thắng; bằng nhau thì hoà.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="controls">
+  <form method="post" action="/move">
+    <div class="row-inline">
+      <label>Người chơi:</label>
+      <select name="player">
+        <option value="X" {% if last_player=='X' %}selected{% endif %}>X</option>
+        <option value="O" {% if last_player=='O' %}selected{% endif %}>O</option>
+      </select>
+
+      <label>Hàng:</label>
+      <input type="text" name="row_label" placeholder="nhập hàng" autocomplete="off">
+
+      <label>Cột:</label>
+      <input type="text" name="col_label" placeholder="nhập cột" autocomplete="off">
+    </div>
+
+    <div class="btns">
+      <button type="submit">Enter</button>
+    </div>
+
+    {% if message %}
+      <div class="msg {% if error %}error{% else %}ok{% endif %}">{{ message }}</div>
+    {% endif %}
+  </form>
+</div>
+</body>
+</html>
+"""
+
+# ===== RENDER HELPERS =====
+def render_select():
+    return render_template_string(SELECT_TEMPLATE, maps=MAPS, course=COURSE)
+
+def render_play(message=None, error=False, last_player="X"):
     return render_template_string(
-        HTML_TEMPLATE,
+        PLAY_TEMPLATE,
         board=board, message=message, error=error, last_player=last_player,
-        url_for=url_for  # for static
+        course=COURSE, url_for=url_for
     )
 
+# ===== ROUTES =====
 @app.route("/", methods=["GET"])
-def home():
-    return render(message=None, error=False, last_player="X")
+def index():
+    return render_select() if not current_map else render_play()
+
+@app.route("/select_map", methods=["POST"])
+def select_map():
+    global current_map
+    mid = request.form.get("map_id")
+    if mid not in MAPS:
+        return render_select()
+    current_map = mid
+    reset_board()
+    return render_play(message=f"Đã chọn {MAPS[mid]['name']}.", error=False)
+
+@app.route("/change_map", methods=["POST"])
+def change_map():
+    return render_select()
 
 @app.route("/move", methods=["POST"])
 def move():
     global game_over, winner
+    if not current_map:
+        return render_select()
+
+    m = MAPS[current_map]
+    col_map, row_map = make_maps(m["cols"], m["rows"])
 
     player = (request.form.get("player") or "").upper().strip()
-    row_label = (request.form.get("row_label") or "").strip()
+    row_label = (request.form.get("row_label") or "").strip().lower()
     col_label = (request.form.get("col_label") or "").strip().lower()
 
     if game_over:
-        return render(message="Ván đã kết thúc. Bấm Reset để chơi lại.", error=True, last_player=player)
-
+        return render_play(message="Ván đã kết thúc. Bấm Reset để chơi lại.", error=True, last_player=player)
     if player not in ("X", "O"):
-        return render(message="Người chơi không hợp lệ (chỉ X hoặc O).", error=True, last_player=player)
+        return render_play(message="Người chơi không hợp lệ.", error=True, last_player=player)
 
-    if row_label not in ROW_MAP or col_label not in COL_MAP:
-        return render(message="Toạ độ không hợp lệ.", error=True, last_player=player)
+    # Tự hoán đổi nếu nhập ngược (ví dụ Hàng=h, Cột=6 ở Map 1)
+    if (row_label not in row_map or col_label not in col_map):
+        if (row_label in col_map) and (col_label in row_map):
+            row_label, col_label = col_label, row_label
+        else:
+            return render_play(message="Toạ độ không hợp lệ.", error=True, last_player=player)
 
-    r = ROW_MAP[row_label]
-    c = COL_MAP[col_label]
-
+    r = row_map[row_label]
+    c = col_map[col_label]
     if board[r][c] != ".":
-        return render(message=f"Ô {row_label}{col_label} đã có giá trị, hãy chọn ô khác.", error=True, last_player=player)
+        return render_play(message="Ô này đã có giá trị.", error=True, last_player=player)
 
-    # Đánh
     board[r][c] = player
 
-    # Kiểm tra kết quả
     result = check_winner(board)
-    if result == "X" or result == "O":
+    if result in ("X", "O"):
         game_over, winner = True, result
-        return render(message=f"{result} thắng! 🎉", error=False, last_player=player)
+        return render_play(message=f"{result} thắng! 🎉", error=False, last_player=player)
     elif result == "draw":
         game_over, winner = True, "draw"
-        return render(message="Hoà (số quân bằng nhau).", error=False, last_player=player)
+        return render_play(message="Hoà (số quân bằng nhau).", error=False, last_player=player)
 
-    # Chưa kết thúc
-    return render(message=f"Đánh vào ô {row_label}{col_label} thành công.", error=False, last_player=player)
+    return render_play(message="Đã đánh.", error=False, last_player=player)
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    global board, game_over, winner
-    board = [["." for _ in range(SIZE)] for _ in range(SIZE)]
-    game_over, winner = False, None
-    return render(message="Đã reset bàn cờ.", error=False, last_player="X")
+    if not current_map:
+        return render_select()
+    reset_board()
+    return render_play(message="Đã reset bàn cờ.", error=False, last_player="X")
 
 if __name__ == "__main__":
-    # Đặt 'morse.png' trong thư mục ./static/
     app.run(host="0.0.0.0", port=5000, debug=True)
