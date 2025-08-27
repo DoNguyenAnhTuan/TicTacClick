@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% set title = course %}
+
+{% block hero_sub %}Trò chơi Tic-Tac-Toe{% endblock %}
+
+{% block body %}
+<div class="topbar">
+  <form method="post" action="/change_map"><button type="submit">Đổi map</button></form>
+  <form method="post" action="/reset"><button type="submit">Reset</button></form>
+</div>
+
+<div class="container">
+  <div class="card">
+    <img src="{{ url_for('static', filename='morse.png') }}" alt="Mã Morse"/>
+    <div class="caption">Bảng mã Morse (tham khảo)</div>
+  </div>
+
+  <div class="card board">
+    <table>
+      {% for row in board %}
+      <tr>
+        {% for cell in row %}
+        <td class="cell {% if cell=='X' %}x{% elif cell=='O' %}o{% else %}e{% endif %}">
+          <span class="mark">{{ cell }}</span>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card rules">
+    <h3>Luật chơi</h3>
+    <ul>
+      <li>Hai người chơi lần lượt đánh dấu <b>X</b> hoặc <b>O</b> vào ô trống.</li>
+      <li>Ô đã có X/O thì không được đánh.</li>
+      <li>3 liên tiếp (ngang/dọc/chéo) → thắng. Hết bàn: bên có <b>số quân nhiều hơn</b> thắng; bằng nhau thì hoà.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="controls">
+  <form method="post" action="/move" id="move-form">
+    <div class="row-inline">
+      <label>Người chơi:</label>
+      <select name="player" id="player">
+        <option value="X" {% if last_player=='X' %}selected{% endif %}>X</option>
+        <option value="O" {% if last_player=='O' %}selected{% endif %}>O</option>
+      </select>
+
+      <label>Hàng:</label>
+      <input type="text" name="row_label" placeholder="nhập hàng" autocomplete="off" id="row-input"/>
+
+      <label>Cột:</label>
+      <input type="text" name="col_label" placeholder="nhập cột" autocomplete="off" id="col-input"/>
+    </div>
+
+    <div class="btns">
+      <button type="submit">Enter</button>
+    </div>
+
+    {% if message %}
+      <div class="msg {% if error %}error{% else %}ok{% endif %}">{{ message }}</div>
+    {% endif %}
+  </form>
+</div>
+{% endblock %}

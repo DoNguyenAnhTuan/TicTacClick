@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set title = course ~ " — Chọn map" %}
+
+{% block hero_sub %}Chọn map để bắt đầu{% endblock %}
+
+{% block body %}
+<div class="wrap">
+  <div class="grid">
+    {% for mid, m in maps.items() %}
+    <div class="card">
+      <div class="maptitle">{{ m.name }}</div>
+      <div class="muted">Bắt đầu thi đấu với cấu hình ẩn tọa độ.</div>
+      <form method="post" action="/select_map">
+        <input type="hidden" name="map_id" value="{{ mid }}"/>
+        <button type="submit">Chọn {{ m.name }}</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
